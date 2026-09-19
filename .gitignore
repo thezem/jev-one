@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tgz
+.jev-one/
+.cortex/
+_checkpoints/
+.env
+.env.*
+!.env.example

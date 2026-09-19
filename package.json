@@ -1,0 +1,47 @@
+{
+  "name": "jev-one",
+  "version": "0.2.0",
+  "description": "A vocabulary-driven runtime for building safe, stateful applications around TypeSafe AI Jev.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./gateway": {
+      "types": "./dist/providers/gateway.d.ts",
+      "import": "./dist/providers/gateway.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    }
+  },
+  "bin": {
+    "jev-one": "./bin/jev-one.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.js",
+    "demo": "npm run build && node examples/one-creature.js",
+    "check": "npm run build && npm test"
+  },
+  "keywords": ["jev", "decision", "classifier", "orchestrator", "agent", "navigation"],
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/gateway": "^4.0.85",
+    "ai": "^7.0.105"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2"
+  }
+}
