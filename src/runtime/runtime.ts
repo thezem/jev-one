@@ -18,6 +18,12 @@ export interface SemanticRuntimeOptions<State = unknown> {
   state: State;
   question?: string;
   policy?: SemanticRuntimePolicy;
+  /** An independent world predicate. When supplied, Jev's STOP and a handler's
+   * done flag cannot claim that the objective was achieved. */
+  verifyCompletion?: (state: State) => boolean | Promise<boolean>;
+  signal?: AbortSignal;
+  onDecision?: (answer: VocabularyAnswer, state: State) => void | Promise<void>;
+  onTurn?: (turn: SemanticTurn<State>) => void | Promise<void>;
 }
 
 export interface SemanticTurn<State = unknown> {
@@ -31,7 +37,7 @@ export interface SemanticTurn<State = unknown> {
 
 export interface SemanticRun<State = unknown> {
   done: boolean;
-  reason: 'semantic_answer' | 'capability_done' | 'jev_stop' | 'wait' | 'ask' | 'unknown' | 'max_turns' | 'no_progress';
+  reason: 'semantic_answer' | 'capability_done' | 'jev_stop' | 'wait' | 'ask' | 'unknown' | 'max_turns' | 'no_progress' | 'verified' | 'aborted';
   answer: VocabularyAnswer | null;
   state: State;
   context: string;
@@ -58,8 +64,16 @@ export class SemanticRuntime {
     let repeated = 0;
     let previousState = stable(state);
     const turns: SemanticTurn<State>[] = [];
+    const verified = () => options.verifyCompletion?.(structuredClone(state));
+    const emit = async (item: SemanticTurn<State>) => {
+      turns.push(item);
+      await options.onTurn?.(structuredClone(item));
+    };
+    if (options.signal?.aborted) return { done: false, reason: 'aborted', answer: null, state, context, turns };
+    if (await verified()) return { done: true, reason: 'verified', answer: null, state, context, turns };
 
     for (let turn = 1; turn <= maxTurns; turn += 1) {
+      if (options.signal?.aborted) return { done: false, reason: 'aborted', answer: turns.at(-1)?.answer ?? null, state, context, turns };
       const root = typeof options.root === 'function' ? options.root(structuredClone(state), turn) : options.root;
       const answer = await this.vocabulary.navigate({
         goal: options.goal,
@@ -70,16 +84,25 @@ export class SemanticRuntime {
       });
       const before = structuredClone(state);
       const payload = answer.entry.payload;
+      await options.onDecision?.(structuredClone(answer), structuredClone(state));
+      // Cancellation during a model call or observer callback must not execute
+      // the capability that the now-cancelled decision selected.
+      if (options.signal?.aborted) return { done: false, reason: 'aborted', answer, state, context, turns };
 
       if (payload.type === 'meaning') {
-        turns.push({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation: answer.entry.meaning });
-        return { done: true, reason: 'semantic_answer', answer, state, context, turns };
+        await emit({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation: answer.entry.meaning });
+        return { done: options.verifyCompletion ? !!(await verified()) : true, reason: 'semantic_answer', answer, state, context, turns };
       }
       if (payload.type === 'control') {
         const observation = `${answer.entry.label}: ${answer.entry.meaning}`;
-        turns.push({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation });
-        if (payload.action === 'continue') { context = `${context}\n\nTURN ${turn}: ${observation}`; continue; }
-        return { done: payload.action === 'stop', reason: payload.action === 'stop' ? 'jev_stop' : payload.action, answer, state, context, turns };
+        await emit({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation });
+        if (payload.action === 'continue') {
+          context = `${context}\n\nTURN ${turn}: ${observation}`;
+          repeated += 1;
+          if (repeated >= maxRepeatedState) return { done: false, reason: 'no_progress', answer, state, context, turns };
+          continue;
+        }
+        return { done: options.verifyCompletion ? !!(await verified()) : payload.action === 'stop', reason: payload.action === 'stop' ? 'jev_stop' : payload.action, answer, state, context, turns };
       }
       if (payload.type === 'vocabulary') throw new Error('Vocabulary navigation returned an unresolved vocabulary reference.');
 
@@ -95,8 +118,8 @@ export class SemanticRuntime {
       repeated = stateHash === previousState ? repeated + 1 : 0;
       previousState = stateHash;
       context = `${context}\n\n[OBSERVED TURN ${turn}]\nSelected: ${answer.entry.label}\nObservation: ${result.observation}`;
-      turns.push({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation: result.observation, capability: capability.id });
-      if (result.done) return { done: true, reason: 'capability_done', answer, state, context, turns };
+      await emit({ turn, answer, stateBefore: before, stateAfter: structuredClone(state), observation: result.observation, capability: capability.id });
+      if (options.verifyCompletion ? await verified() : result.done) return { done: true, reason: options.verifyCompletion ? 'verified' : 'capability_done', answer, state, context, turns };
       if (repeated >= maxRepeatedState) return { done: false, reason: 'no_progress', answer, state, context, turns };
     }
     return { done: false, reason: 'max_turns', answer: turns.at(-1)?.answer ?? null, state, context, turns };

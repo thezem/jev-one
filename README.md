@@ -1,365 +1,394 @@
 # Jev One
 
-**Give Jev a language. Let it point. Keep the program in control.**
+**Give Jev a language. Connect its choices to a world. Watch what happens.**
 
-Jev One is an experimental TypeScript runtime for building applications around
-[TypeSafe AI Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev),
-a model that answers by selecting from choices you provide.
+Jev One is a JavaScript library for building stateful applications around
+TypeSafe AI's **Jev**, a model that answers by pointing to choices you supply.
 
-Instead of asking a generative model to invent the next action, Jev One lets a
-program define the complete legal world—meanings, routes, capabilities, control
-signals, files, browser elements, game moves, or any other bounded set. Jev
-points to the best fit. Deterministic code validates the selection, changes the
-state, observes the result, and decides whether another turn is allowed.
+A choice can mean a word, a place, an object, a tool, another vocabulary, or a
+request to stop. Your code gives that choice its effect. The runtime carries
+the observation into the next decision, until an objective is verified or a
+limit is reached.
 
 ```text
-goal + context + question + legal choices
-                       │
-                       ▼
-                 Jev points
-                       │
-                       ▼
-     policy validates → program acts → state changes
-                       │
-                       └─────────────── repeat, wait, or stop
+                  Your goal + the observed world
+                               │
+                               ▼
+                    What can Jev choose here?
+                     words · numbers · actions
+                               │
+                               ▼
+                          Jev points
+                               │
+                               ▼
+                   Code validates and applies it
+                               │
+                               ▼
+                     Observe what really changed
+                               │
+                   ┌───────────┴───────────┐
+                   │                       │
+               Choose again         Verify / stop / wait
 ```
 
-> [!IMPORTANT]
-> Jev One uses the real Jev model through Vercel AI Gateway. It has no heuristic,
-> offline, or general-LLM fallback.
+The route comes from Jev's choices. The available actions, permissions, and
+definition of success come from the application.
 
-## Why this exists
+**Experimental · TypeScript source · ESM JavaScript · Real Jev via Vercel AI Gateway**
 
-Jev is unusually fast and useful when the answer already exists in a bounded
-choice space. The hard part is not making one classification call. It is turning
-that primitive into a reliable program that can:
+## Start here
 
-- speak in domain-specific vocabularies;
-- descend through large or hierarchical choice spaces;
-- point at a changing list without rebuilding its language;
-- carry state and observations across multiple turns;
-- expose only legal actions at each step;
-- stop on completion, uncertainty, repetition, or budget exhaustion;
-- leave a trace of every decision.
+| You want to… | Start with… |
+| --- | --- |
+| Understand the idea | [A word can change the world](#a-word-can-change-the-world) |
+| Make your first Jev call | [Run it locally](#run-it-locally) |
+| See an actual loop | [Run the courier](#run-the-courier) |
+| Integrate it into an application | [The four building blocks](#the-four-building-blocks) |
+| Give a coding agent the right context | [Agent integration guide](docs/AGENT-GUIDE.md) |
+| Stream decisions or verify completion | [Runtime lifecycle](docs/OBSERVABLE-RUNTIME.md) |
+| Understand the internals | [Architecture](docs/ARCHITECTURE.md) |
 
-Jev One packages those mechanics as a small runtime.
+## A word can change the world
 
-## What you can build
+Imagine a courier in a small world. It can move, carry one object, plant seeds,
+repair a beacon, and deliver a notebook. Give it a goal: **“Take care of this place.”**
 
-- **Semantic interfaces** that classify situations using your words and meanings.
-- **Decision gates** that choose, score, or answer Boolean questions.
-- **Navigators** for folders, links, nodes, browser elements, or game moves.
-- **Tool routers** that point to registered capabilities with explicit effects.
-- **State machines** whose observations change the legal vocabulary each turn.
-- **Agent judges** for plans, diffs, candidate actions, and completion checks.
+- At home, `PICK UP` can put seeds in its hands.
+- `MOVE` opens a numbered list of connected places.
+- At the greenhouse, carrying seeds makes `PLANT` available.
+- Planting changes the world, empties its hands, and changes its next choices.
+- Closing a bridge changes the routes it can see.
+- Removing its hands vocabulary removes the actions that need hands.
+- Teaching it `NURTURE` can give it another meaning bound to the planting capability.
 
-## Installation
+These are the mechanics demonstrated by the companion React lab. This repository
+contains the reusable library and terminal examples; the lab UI is a separate
+application. The courier below runs entirely from this repository.
 
-Jev One currently ships from source and requires Node.js 20 or newer.
+The same structure can drive an application with files, interface elements,
+messages, or game objects. You supply the environment and implement its effects.
+Adding a word expands the language; adding a capability expands what the program
+can actually do.
+
+## Run it locally
+
+Use Node.js 22 or newer and npm. This workflow builds from source and does not
+assume a published npm release.
 
 ```bash
 git clone https://github.com/thezem/jev-one.git
 cd jev-one
-npm install
+npm ci
 npm run build
 ```
 
-Set a Vercel AI Gateway key in your environment:
+Set `AI_GATEWAY_API_KEY` in the environment of your **Node process**. In PowerShell:
 
 ```powershell
-$env:AI_GATEWAY_API_KEY = "your-key"
+$env:AI_GATEWAY_API_KEY = "your-vercel-ai-gateway-key"
 ```
 
-Never place the key in source code or commit it to the repository.
+Or in a POSIX shell:
 
-## Quick start
+```bash
+export AI_GATEWAY_API_KEY="your-vercel-ai-gateway-key"
+```
+
+Keep credentials on the server. Do not put them in browser code, source files,
+logs, or Git. The examples read the environment; they do not automatically load
+a `.env` file. Each live example uses your Gateway account. There is no offline
+or heuristic fallback.
+
+```bash
+node examples/quick-start.js
+```
+
+This asks Jev to route a message into `BUG`, `REQUEST`, or `NEEDS CONTEXT`, then
+prints the selected word, meaning, and selection weight.
+
+### Use it from another local project
+
+Build this checkout first, then install its local path from your consuming project:
+
+```bash
+npm install /absolute/path/to/jev-one
+```
+
+In an ESM `.mjs` file, or a project with `"type": "module"`:
 
 ```js
-import { JevOne, PointKernel } from 'jev-one'
-import { VercelJevProvider } from 'jev-one/gateway'
+import { JevOne, PointKernel } from 'jev-one';
+import { VercelJevProvider } from 'jev-one/gateway';
+
+const apiKey = process.env.AI_GATEWAY_API_KEY;
+if (!apiKey) throw new Error('Set AI_GATEWAY_API_KEY.');
 
 const jev = new JevOne(
-  new PointKernel(
-    new VercelJevProvider({ apiKey: process.env.AI_GATEWAY_API_KEY }),
-  ),
-)
-
-jev.vocabularies.register({
-  id: 'next-move',
-  label: 'Next move',
-  description: 'Small actions that can change the current situation.',
-  entries: [
-    {
-      id: 'make-it-tiny',
-      label: 'MAKE IT TINY',
-      meaning: 'Choose one action small enough to begin without negotiation.',
-      payload: { type: 'meaning' },
-    },
-    {
-      id: 'change-the-scene',
-      label: 'CHANGE THE SCENE',
-      meaning: 'Shift location or posture to interrupt the current pattern.',
-      payload: { type: 'meaning' },
-    },
-    {
-      id: 'reach-out',
-      label: 'REACH OUT',
-      meaning: 'Make light contact without demanding a large conversation.',
-      payload: { type: 'meaning' },
-    },
-  ],
-})
-
-const answer = await jev.vocabulary.answer({
-  context: 'I have several unfinished tasks and keep switching between them.',
-  question: 'What response best fits this moment?',
-  vocabulary: 'next-move',
-})
-
-console.log(answer.entry.label)
-console.log(answer.entry.meaning)
-console.log(answer.decision.probability)
+  new PointKernel(new VercelJevProvider({ apiKey })),
+);
 ```
 
-Jev can only select one of the registered entries. It cannot invent a fourth.
+The snippets below assume this `jev` instance. For a browser UI, call your own
+server endpoint and stream its decisions back to the page.
 
-## The vocabulary model
+## Run the courier
 
-A vocabulary is a named collection of entries. Every entry resolves to exactly
-one payload type:
-
-| Payload | Meaning |
-| --- | --- |
-| `meaning` | Return a semantic answer to the caller. |
-| `vocabulary` | Continue into another vocabulary. |
-| `capability` | Invoke a registered, policy-checked program function. |
-| `control` | Continue, stop, wait, ask, or report unknown. |
-
-Vocabulary references make large languages navigable:
-
-```js
-jev.vocabularies.register({
-  id: 'world',
-  label: 'World',
-  description: 'The available semantic territories.',
-  entries: [
-    {
-      id: 'emotion',
-      label: 'EMOTION',
-      meaning: 'Interpret the situation emotionally.',
-      payload: { type: 'vocabulary', target: 'emotions' },
-    },
-    {
-      id: 'action',
-      label: 'ACTION',
-      meaning: 'Choose a legal next action.',
-      payload: { type: 'vocabulary', target: 'actions' },
-    },
-  ],
-})
-
-const answer = await jev.vocabulary.navigate({
-  root: 'world',
-  context,
-  question: 'Where should this situation be interpreted?',
-  maxDepth: 6,
-})
+```bash
+node examples/observable-world.js
 ```
 
-The engine follows Jev-selected vocabulary references until it reaches a leaf.
-Cycles and excessive depth are rejected deterministically.
+This gives Jev a four-place map, a notebook at the archive, and a goal: bring
+the notebook home. Jev selects each action, then uses numbers to select adjacent
+places. Legal actions are rebuilt from actual state on every turn.
 
-## The permanent 1–25 board
+Give it extra direction:
 
-Dynamic environments should not generate a new vocabulary for every screen or
-directory. Jev One includes a permanent numeric language—`1` through `25`—that
-can be temporarily bound to the items visible right now.
-
-```js
-const pointed = await jev.numbers.choose({
-  context: 'We are in the animals directory and need to find a feline.',
-  question: 'Which current entry should be opened?',
-  items: currentEntries.slice(0, 25).map((entry) => ({
-    label: entry.name,
-    description: entry.kind,
-    value: entry,
-  })),
-})
-
-console.log(pointed.number)     // 3
-console.log(pointed.item.value) // the item currently bound to 3
+```bash
+node examples/observable-world.js "Travel through the garden on the outward journey."
 ```
 
-This is the universal adapter for filesystem entries, DOM elements, commands,
-search results, game moves, tools, or any changing legal list.
-
-## Stateful semantic loops
-
-The semantic runtime turns pointing into a bounded loop:
+An illustrative run looks like this; actual choices can differ:
 
 ```text
-observe state → expose a vocabulary → Jev points → validate effects
-      ▲                                               │
-      └──────── update context and state ◀────────────┘
+MOVE      home → garden
+MOVE      garden → archive
+PICK UP   notebook is now carried
+MOVE      archive → workshop
+MOVE      workshop → home
+DELIVER   notebook is now on the home desk
+
+done: true
+reason: verified
 ```
 
-Register a capability:
+The program checks the delivered state. A `STOP` before delivery returns
+`done: false`. All effects happen in memory. The complete, executable
+[observable-world.js](examples/observable-world.js) shows the loop, numbered
+board, handlers, observations, and success predicate together.
+
+## The four building blocks
+
+### 1. A vocabulary gives Jev meanings to choose
 
 ```js
-jev.capabilities.register({
-  id: 'map.inspect',
-  description: 'Inspect the current map location.',
-  effects: ['read'],
-  handler: ({ state }) => ({
-    state: { ...state, inspected: true },
-    observation: `Inspected ${state.location}.`,
-  }),
-})
+const answer = await jev.vocabulary.answer({
+  context: 'After I press Save, the app closes and my draft disappears.',
+  question: 'Where should this message go?',
+  vocabulary: [
+    { id: 'bug', label: 'BUG', meaning: 'Existing behavior is broken.',
+      payload: { type: 'meaning' } },
+    { id: 'request', label: 'REQUEST', meaning: 'A new capability is wanted.',
+      payload: { type: 'meaning' } },
+    { id: 'unknown', label: 'NEEDS CONTEXT', meaning: 'There is not enough information.',
+      payload: { type: 'meaning' } },
+  ],
+});
+
+console.log(answer.entry.label);
+console.log(answer.decision.probability);
 ```
 
-Then run it with explicit limits:
+A vocabulary needs at least two entries with distinct IDs. Write meanings that
+distinguish the alternatives. Include uncertainty when a forced choice would
+be misleading. For reuse, register an object with `id`, `label`, `description`,
+and `entries` through `jev.vocabularies.register(...)`, then pass its ID to
+`vocabulary.answer`.
+
+### 2. A word can open another vocabulary
+
+| Payload | What happens |
+| --- | --- |
+| `{ type: 'meaning' }` | Return the selected meaning. |
+| `{ type: 'vocabulary', target: 'tools' }` | In `navigate`, open the registered `tools` vocabulary and choose again. |
+| `{ type: 'capability', target: 'world.plant' }` | In the runtime, validate and call the registered handler. |
+| `{ type: 'control', action: 'stop' }` | Request termination. Other controls are `continue`, `wait`, `ask`, and `unknown`. |
+
+`vocabulary.answer` selects in one vocabulary. `vocabulary.navigate` follows
+vocabulary references until it reaches a leaf. Register every referenced
+vocabulary first; references are IDs, not filesystem paths.
 
 ```js
+// After registering a root and the vocabularies it references:
+const result = await jev.vocabulary.navigate({
+  root: 'world',
+  context: 'The courier is holding seeds beside an empty planter.',
+  question: 'Which available meaning or action fits now?',
+  maxDepth: 6,
+});
+
+console.log(result.path);
+console.log(result.entry);
+```
+
+`loadVocabularyDirectory` from `jev-one/node` loads JSON vocabulary files. See
+the [exact loading example](docs/AGENT-GUIDE.md#load-a-directory-of-vocabularies).
+Large choice sets use Jev shortlist batches; hierarchical vocabularies can
+expose a smaller, meaningful choice at each level. Navigation rejects cycles
+and excessive depth.
+
+### 3. Numbers point to whatever is visible now
+
+```js
+const answer = await jev.numbers.choose({
+  context: 'The courier carries a notebook that belongs at home.',
+  question: 'Which connected place should it enter?',
+  items: [
+    { label: 'Home', description: 'The notebook delivery desk.', value: 'home' },
+    { label: 'Garden', description: 'A path toward the archive.', value: 'garden' },
+    { label: 'Stay', description: 'Do not move yet.', value: null },
+  ],
+});
+
+console.log(answer.number);     // one-based position on this board
+console.log(answer.index);      // zero-based position
+console.log(answer.item.value); // the value bound to the selected item
+```
+
+The board accepts **2–25 items**. Bindings are local to that call. Re-observe
+before acting if the environment can change. For larger lists, use explicit
+pages or hierarchical selection; silently slicing to 25 can hide the correct
+answer. An empty or single-item list needs an explicit application policy.
+
+### 4. The runtime connects choices to consequences
+
+A capability is your function, registered with a stable ID, description, and
+declared effects. Its handler returns updated `state` and an `observation`.
+The runtime adds that observation to the next decision's context.
+
+The courier example demonstrates the complete wiring. A runtime call looks like:
+
+```js
+// With the courier vocabulary and capabilities already registered:
 const run = await jev.runtime.run({
-  goal: 'Find and verify the destination.',
-  context: 'Begin at the entrance.',
-  root: (state) => state.inspected ? 'routes' : 'observation-actions',
-  state: { location: 'entrance', inspected: false },
+  goal: 'Bring the notebook home.',
+  context: 'The notebook starts at the archive.',
+  root: 'courier',
+  state: { location: 'home', carrying: false, delivered: false },
   policy: {
-    maxTurns: 8,
+    maxTurns: 16,
     maxDepth: 6,
     maxRepeatedState: 2,
-    allowedEffects: ['read', 'navigate'],
+    allowedEffects: ['none'],
   },
-})
+  verifyCompletion: state => state.delivered,
+  onDecision: answer => console.log('Selected:', answer.entry.label),
+  onTurn: turn => console.log('Observed:', turn.observation),
+});
 ```
 
-The caller owns the state, capabilities, allowed effects, and stopping policy.
-Jev owns only the semantic selection.
+For a changing world, `root` may be a function `(state, turn) => vocabularyId`.
+Use it to derive legal actions from current state. If Jev should choose the
+route, avoid selecting the next vocabulary just because it is turn two or three.
 
-## Focused modules
+## Know what “finished” means
 
-The vocabulary runtime is the general foundation. Jev One also exposes focused
-surfaces for common patterns:
+Supply **`verifyCompletion`** whenever `done` should mean an objective was achieved.
 
-| Module | Purpose |
+| Result reason | Interpretation |
 | --- | --- |
-| `oracle` | Point into an expandable hierarchical lexicon of meanings. |
-| `cortex` | Make direct choices, Boolean judgments, scores, and cumulative decisions. |
-| `navigator` | Repeatedly choose among legal transitions exposed by an environment. |
-| `commander` | Build an inert `family → operation → target` proposal. Never executes it. |
-| `voice` | Select speech acts and facts, then render deterministic templates. |
-| `orchestrator` | Choose among currently legal postures: talk, choose, act, wait, stop. |
+| `verified` | Your predicate confirmed the current state. |
+| `jev_stop` | Jev requested a stop. With a verifier, this does not imply success. |
+| `semantic_answer` | A meaning was returned; it does not automatically satisfy a verifier. |
+| `wait`, `ask`, `unknown` | Control returned for the application to handle. |
+| `no_progress` | Consecutive unchanged states or repeated `continue` reached the limit. |
+| `max_turns` | The turn budget was exhausted. |
+| `aborted` | The signal cancelled the run at a runtime boundary. |
+| `capability_done` | Without a verifier, a handler reported completion. |
 
-### Cumulative decisions with Cortex
+Without `verifyCompletion`, the existing API also treats a returned meaning,
+a handler's `done: true`, or Jev's `STOP` as completion. Check the reason and
+the application's facts before calling that success.
 
-```js
-const plan = await jev.cortex.sequence(
-  'Choose an implementation direction.',
-  'The feature must work locally and remain easy to inspect.',
-  [
-    {
-      id: 'storage',
-      question: 'Which storage model best fits?',
-      choices: storageChoices,
-    },
-    {
-      id: 'interface',
-      question: 'Which interface should expose it?',
-      choices: interfaceChoices,
-    },
-  ],
-)
-```
+`onDecision` runs before the capability; `onTurn` runs after its result. Both
+receive clones and may be asynchronous. A nested call made inside your handler
+has its own result and trace; expose it explicitly to stream that choice too.
 
-Every selected answer is appended to the context before the next question.
+Cancellation does not undo effects or interrupt an in-flight model call.
+`maxTurns` counts runtime turns, **not** every underlying Jev call. Applications
+with nested calls or repeated one-turn runs must enforce overall call, time,
+and session budgets. See [the lifecycle guide](docs/OBSERVABLE-RUNTIME.md).
 
-### Read-only filesystem navigation
+## Boundaries that matter
 
-```js
-import { ReadonlyFilesystemEnvironment } from 'jev-one/node'
+- **Jev selects supplied choices.** It does not generate handler implementations.
+- **Effect policy checks declarations.** It is not a JavaScript sandbox. Handlers
+  must enforce real permissions, argument validation, and recovery.
+- **Words do not grant authority.** New labels do not create new permissions.
+  `requiresApproval` is an entry-level gate; the caller owns any approval workflow.
+- **Use JSON-compatible, cloneable state.** A new timestamp or counter every turn
+  can conceal a semantic no-op from state comparison.
+- **Supply the relevant facts.** Describe carried objects, destinations, changes,
+  and open paths. Jev cannot use options or facts your application omitted.
+- **Weights are not proof.** Selection weights do not establish correctness.
+  `jev.kernel.ledger.verify()` checks the local hash chain, not world truth or
+  provenance against a malicious rewriter.
+- **Errors propagate.** Invalid choices, unknown references, forbidden effects,
+  provider failures, and callback failures throw. Handle them at your application
+  boundary; do not replace errors with fabricated success.
 
-const filesystem = await ReadonlyFilesystemEnvironment.create({
-  root: 'G:\\',
-  maxDepth: 4,
-})
+## Other tools in the library
 
-const run = await jev.navigator.run(
-  'Find the Jev laboratory.',
-  filesystem.initialState(),
-  filesystem,
-  { maxDepth: 4 },
-)
-```
+Use the vocabulary runtime for new stateful integrations. Focused modules remain
+available independently:
 
-The included adapter performs read-only observation, rejects paths outside its
-root, ignores symbolic links, and clamps traversal depth to four.
+| Surface | Use it for |
+| --- | --- |
+| `jev.oracle` | An expandable lexicon, starting with 100 semantic symbols. |
+| `jev.cortex` | Choices, Boolean judgments, ordered scores, and cumulative sequences. |
+| `jev.navigator` | Observation and traversal through an environment adapter. |
+| `jev.commander` | Inert `family → operation → target` proposals; never execution. |
+| `jev.voice` | Jev-selected speech acts and supplied facts rendered through templates. |
+| `jev.orchestrator` | A loop over legal talk / choose / act / wait / stop postures. |
+| `PointKernel` | Direct choices, per-call deadlines, diagnostics, and trace recording. |
 
-## CLI
+These have their own result contracts; the semantic runtime's verifier is not
+automatically applied to other loops. The library's Cortex module is separate
+from any installed `jev-cortex` agent-tool audit workflow.
 
-After building, the CLI can call the same runtime:
+`ReadonlyFilesystemEnvironment` from `jev-one/node` observes real directory
+entries, confines traversal to its root, skips symlinks, and caps depth at four.
+It does not read file contents or execute shell commands. Names and paths can
+become Jev context; choose an appropriate root. See
+[the filesystem example](examples/navigate-g-drive.js), which uses a Windows path.
 
-```bash
-jev-one oracle --context "..." --question "..."
-jev-one will --goal "..." --context "..."
-jev-one capabilities
-```
+## CLI and development
 
-Decision commands refuse to run without `AI_GATEWAY_API_KEY`.
-
-## Safety boundaries
-
-Jev One deliberately separates **semantic judgment** from **authority**:
-
-1. Jev can point only to choices supplied by the application.
-2. The kernel validates IDs, choice counts, deadlines, and distributions.
-3. Capabilities must be registered before Jev can select them.
-4. Effects are declared and checked against runtime policy.
-5. Approval-required entries are rejected unless explicitly enabled.
-6. The runtime stops on excessive turns, depth, cycles, or repeated state.
-7. Commander creates dry-run proposals and contains no executor.
-8. The included filesystem environment cannot write, delete, or escape its root.
-9. Every kernel decision enters a SHA-256 hash-chained trace ledger.
-
-Applications remain responsible for authentication, permissions, side effects,
-post-action verification, and recovery.
-
-## Package map
-
-```text
-jev-one
-├── PointKernel               validated Jev calls and trace recording
-├── VocabularyRegistry        installed domain languages
-├── VocabularyEngine          direct and hierarchical pointing
-├── IndexedVocabulary         permanent 1–25 dynamic board
-├── SemanticRuntime           state, observation, capability, and stop loop
-├── RuntimeCapabilityRegistry effect-labelled program functions
-├── Oracle / Cortex           semantic and planning helpers
-├── Navigator / Commander     traversal and inert action proposals
-├── Voice / Orchestrator      deterministic expression and posture loops
-└── TraceLedger               append-only hash-chained decision history
-```
-
-For the design rationale and internal contracts, see
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Development
+After building, run the CLI directly from this checkout:
 
 ```bash
-npm install
-npm run build
-npm test
-npm run demo
+node bin/jev-one.js --help
+node bin/jev-one.js oracle --context "The interface has too many steps." --question "What should guide the next change?"
+node bin/jev-one.js will --goal "Find the missing file." --context "The directory has not been inspected."
+node bin/jev-one.js capabilities
 ```
 
-`npm test` compiles the package and runs the Node test suite. The demo performs
-real model calls and therefore requires `AI_GATEWAY_API_KEY`.
+Currently all non-help CLI commands require `AI_GATEWAY_API_KEY`; capabilities
+lists manifests without a model call. Installing the package also provides the
+`jev-one` command shim.
 
-## Status
+```bash
+npm run build     # emit ESM JavaScript and TypeScript declarations
+npm test          # build and run mechanics/example tests; no API key required
+npm run demo      # live posture/oracle/voice example; requires a key
+npm pack --dry-run
+```
 
-Jev One is an experimental research project. Its concepts and safety boundaries
-are intentional, but the API may evolve while real applications test the model.
+Tests use private fixtures to verify mechanics, not live model quality. The
+quick-start and courier commands exercise the real Gateway path. Source examples
+and docs live in the repository; the package archive contains `dist`, `bin`, the
+README, and license.
 
-## License
+## For coding agents
 
-[MIT](LICENSE)
+Read [docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md) before integrating. It gives the
+exact API entry points, a build sequence, a vocabulary-file example, and
+acceptance criteria. Start from
+[examples/observable-world.js](examples/observable-world.js) for a working loop.
+
+Preserve the central contract: **Jev chooses. The application defines what is
+possible, applies the effects, and checks what actually happened.**
+
+## Status and license
+
+This is an experimental library. APIs may evolve as applications expose gaps.
+The source and examples are released under the [MIT license](LICENSE).

@@ -45,6 +45,14 @@ The runtime enforces turn, depth, effect, approval, and no-progress boundaries.
 Capabilities are registered functions with declared effects; Jev cannot invent
 one or bypass the policy.
 
+Effect enforcement checks declarations, not JavaScript behavior: handlers remain
+responsible for actual permissions and external effects. Applications can supply
+`verifyCompletion(state)` to make completion depend on observed facts rather
+than a stop choice or a handler's `done` flag. Optional `onDecision` and `onTurn`
+callbacks expose selection and committed transitions. See
+[the lifecycle contract](OBSERVABLE-RUNTIME.md) and
+[the agent integration guide](AGENT-GUIDE.md).
+
 ## Compatible focused modules
 
 The original focused modules remain importable compatibility surfaces. New
@@ -93,7 +101,8 @@ Points through a fixed action grammar:
 family → operation → target
 ```
 
-It only returns inert proposals with `dryRun: true`. There is no executor in the package.
+It only returns inert proposals with `dryRun: true`. Commander has no executor;
+the separate semantic runtime does invoke registered application capabilities.
 
 ### Voice
 
