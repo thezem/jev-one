@@ -12,6 +12,8 @@ import { CONTROL_VOCABULARY } from './vocabulary/builtins.js';
 import { RuntimeCapabilityRegistry } from './runtime/capabilities.js';
 import { SemanticRuntime } from './runtime/runtime.js';
 import { IndexedVocabulary } from './vocabulary/indexed.js';
+import { ProfileStore } from './recommendation/profile.js';
+import { recommend, type RecommendationOptions } from './recommendation/recommend.js';
 
 export class JevOne {
   readonly kernel: PointKernel;
@@ -27,6 +29,9 @@ export class JevOne {
   readonly capabilities: RuntimeCapabilityRegistry;
   readonly runtime: SemanticRuntime;
   readonly numbers: IndexedVocabulary;
+  readonly profiles = new ProfileStore();
+
+  recommend<T>(options: RecommendationOptions<T>) { return recommend(this.kernel, options); }
 
   constructor(kernel: PointKernel) {
     this.kernel = kernel;

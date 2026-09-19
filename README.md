@@ -43,6 +43,7 @@ definition of success come from the application.
 | Understand the idea | [A word can change the world](#a-word-can-change-the-world) |
 | Make your first Jev call | [Run it locally](#run-it-locally) |
 | See an actual loop | [Run the courier](#run-the-courier) |
+| Recommend items and remember feedback | [Recommendations that remember](#recommendations-that-remember) |
 | Integrate it into an application | [The four building blocks](#the-four-building-blocks) |
 | Give a coding agent the right context | [Agent integration guide](docs/AGENT-GUIDE.md) |
 | Stream decisions or verify completion | [Runtime lifecycle](docs/OBSERVABLE-RUNTIME.md) |
@@ -326,6 +327,41 @@ and session budgets. See [the lifecycle guide](docs/OBSERVABLE-RUNTIME.md).
   provider failures, and callback failures throw. Handle them at your application
   boundary; do not replace errors with fabricated success.
 
+## Recommendations that remember
+
+Record feedback, save the profile as JSON anywhere, and restore it next session:
+
+```js
+const profile = jev.profiles.create({ preferences: 'Thoughtful science fiction.' });
+profile.record({ itemId: 'arrival', action: 'liked', item: { title: 'Arrival' } });
+const saved = JSON.stringify(profile.export());
+const restored = jev.profiles.restore(JSON.parse(saved));
+
+const result = await jev.recommend({
+  profile: restored,
+  items: movies, // objects with stable string id and title or label
+  context: 'Watching with my partner; we have 90 minutes.',
+  eligible: movie => movie.minutes <= 90,
+  minItems: 3,
+  maxItems: 5,
+});
+console.log(result.items, result.minimumMet, result.reason);
+```
+
+For a database or remote catalog, replace `items` with
+`source: async ({ cursor, limit }) => ({ items, nextCursor })`.
+Jev can browse pages, revisit earlier candidates, and select multiple items.
+`pageSize` defaults to 10; `maxPages` and `maxDecisions` bound the run. A minimum
+prevents voluntary early finishing, but never overrides hard filters or budgets.
+
+Your app owns storage and records actual feedback. The library does not infer a
+like from a recommendation, train a model, or silently save personal data.
+Read the [complete profile and pagination contract](docs/RECOMMENDATIONS.md), or run:
+
+```bash
+node examples/recommendations.js
+```
+
 ## Other tools in the library
 
 Use the vocabulary runtime for new stateful integrations. Focused modules remain
@@ -379,6 +415,8 @@ and docs live in the repository; the package archive contains `dist`, `bin`, the
 README, and license.
 
 ## For coding agents
+
+For persistent personalization, see [recommendations and portable profiles](docs/RECOMMENDATIONS.md).
 
 Read [docs/AGENT-GUIDE.md](docs/AGENT-GUIDE.md) before integrating. It gives the
 exact API entry points, a build sequence, a vocabulary-file example, and

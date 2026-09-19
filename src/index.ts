@@ -20,3 +20,5 @@ export * from './vocabulary/builtins.js';
 export * from './vocabulary/indexed.js';
 export * from './runtime/capabilities.js';
 export * from './runtime/runtime.js';
+export * from './recommendation/profile.js';
+export * from './recommendation/recommend.js';

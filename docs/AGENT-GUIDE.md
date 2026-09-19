@@ -214,6 +214,13 @@ not establish how Jev behaves on your domain.
 
 ## Source map
 
+For recommendations, use `jev.profiles.create/restore` and `jev.recommend`.
+Read [RECOMMENDATIONS.md](RECOMMENDATIONS.md) for exact source, profile, and result
+contracts. Persistence belongs to the caller; export is versioned JSON. Check
+`minimumMet` instead of assuming a requested minimum was achieved. Hard filters
+remain binding, and model weights are not satisfaction probabilities. Use the
+[runnable example](../examples/recommendations.js) for integration wiring.
+
 | Contract | Source |
 | --- | --- |
 | Choice/provider types and effects | [`src/types.ts`](../src/types.ts) |
