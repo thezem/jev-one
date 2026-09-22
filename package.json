@@ -1,8 +1,17 @@
 {
   "name": "jev-one",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A vocabulary-driven runtime for building safe, stateful applications around TypeSafe AI Jev.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thezem/jev-one.git"
+  },
+  "homepage": "https://github.com/thezem/jev-one#readme",
+  "bugs": {
+    "url": "https://github.com/thezem/jev-one/issues"
+  },
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -20,7 +29,7 @@
     }
   },
   "bin": {
-    "jev-one": "./bin/jev-one.js"
+    "jev-one": "bin/jev-one.js"
   },
   "files": [
     "dist",
@@ -32,10 +41,25 @@
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.js",
     "demo": "npm run build && node examples/one-creature.js",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "prepublishOnly": "npm test"
   },
-  "keywords": ["jev", "decision", "classifier", "orchestrator", "agent", "navigation"],
+  "keywords": [
+    "jev",
+    "decision",
+    "classifier",
+    "orchestrator",
+    "agent",
+    "navigation",
+    "filesystem-search"
+  ],
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@ai-sdk/gateway": "^4.0.85",
     "ai": "^7.0.105"
@@ -43,5 +67,11 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^7.0.2"
-  }
+  },
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "test"
+  },
+  "author": ""
 }

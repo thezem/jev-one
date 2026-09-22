@@ -14,6 +14,7 @@ import { SemanticRuntime } from './runtime/runtime.js';
 import { IndexedVocabulary } from './vocabulary/indexed.js';
 import { ProfileStore } from './recommendation/profile.js';
 import { recommend, type RecommendationOptions } from './recommendation/recommend.js';
+import { DecisionCards } from './cards.js';
 
 export class JevOne {
   readonly kernel: PointKernel;
@@ -29,6 +30,7 @@ export class JevOne {
   readonly capabilities: RuntimeCapabilityRegistry;
   readonly runtime: SemanticRuntime;
   readonly numbers: IndexedVocabulary;
+  readonly cards: DecisionCards;
   readonly profiles = new ProfileStore();
 
   recommend<T>(options: RecommendationOptions<T>) { return recommend(this.kernel, options); }
@@ -46,6 +48,7 @@ export class JevOne {
     this.capabilities = new RuntimeCapabilityRegistry();
     this.runtime = new SemanticRuntime(this.vocabulary, this.capabilities);
     this.numbers = new IndexedVocabulary(kernel);
+    this.cards = new DecisionCards(kernel);
     this.registry
       .register({manifest:{id:'oracle',name:'Oracle',version:'0.1.0',description:'Universal semantic meanings.',postures:['choose','talk'],effects:['none']},implementation:this.oracle})
       .register({manifest:{id:'cortex',name:'Cortex',version:'0.1.0',description:'Consequential judgment and cumulative decisions.',postures:['choose'],effects:['none']},implementation:this.cortex})

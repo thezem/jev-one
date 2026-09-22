@@ -42,9 +42,11 @@ definition of success come from the application.
 | --- | --- |
 | Understand the idea | [A word can change the world](#a-word-can-change-the-world) |
 | Make your first Jev call | [Run it locally](#run-it-locally) |
+| Give Jev structured evidence for every option | [Use decision cards](#use-decision-cards) |
 | See an actual loop | [Run the courier](#run-the-courier) |
 | Recommend items and remember feedback | [Recommendations that remember](#recommendations-that-remember) |
-| Integrate it into an application | [The four building blocks](#the-four-building-blocks) |
+| Ask Jev to find files or folders | [Run the file-search agent](#run-the-file-search-agent) |
+| Integrate it into an application | [The five building blocks](#the-five-building-blocks) |
 | Give a coding agent the right context | [Agent integration guide](docs/AGENT-GUIDE.md) |
 | Stream decisions or verify completion | [Runtime lifecycle](docs/OBSERVABLE-RUNTIME.md) |
 | Understand the internals | [Architecture](docs/ARCHITECTURE.md) |
@@ -167,7 +169,86 @@ The program checks the delivered state. A `STOP` before delivery returns
 [observable-world.js](examples/observable-world.js) shows the loop, numbered
 board, handlers, observations, and success predicate together.
 
-## The four building blocks
+## Run the file-search agent
+
+Jev One includes a read-only search agent that can navigate one or more real
+filesystem roots, select pages and entries through numbered boards, backtrack
+through unexplored branches, collect several results, and return only paths
+that still exist when verified. Every Jev decision receives the search's fixed
+UTC start date and time. Every visible file and folder carries its size alongside
+its ISO last-modified timestamp into Jev's page
+summaries and entry choices. File sizes are exact bytes with a human-readable
+unit. Folder sizes are immediate child counts; recursively measuring every
+visible folder would crawl the tree before Jev could choose where to navigate.
+Collected results return freshly verified metadata.
+
+```bash
+node bin/jev-one.js find \
+  --goal "Find the folder containing my Jev project" \
+  --root "G:\\" \
+  --max-results 1
+```
+
+Repeat `--root` to search several locations. Without it, Windows drive roots—or
+`/` on POSIX—are discovered without invoking a shell command.
+
+```bash
+node bin/jev-one.js find \
+  --goal "Find quick-start.js and observable-world.js; collect those two files" \
+  --root "G:\\Chats\\jev-one\\examples" \
+  --max-results 2 \
+  --max-depth 8 \
+  --max-points 40
+```
+
+Use it as a library:
+
+```js
+import { JevFileSearchAgent } from 'jev-one/node';
+
+const agent = new JevFileSearchAgent(jev.numbers);
+const result = await agent.search(
+  'Find the two project folders related to Jev.',
+  {
+    roots: ['G:\\Chats'],
+    maxResults: 2,
+    maxDepth: 12,
+    maxPoints: 80,
+    onEvent: event => console.log(event),
+  },
+);
+
+console.log(result.done, result.reason, result.matches);
+```
+
+The agent never changes the process working directory and has no write, rename,
+delete, copy, or execute operation. It skips symbolic links, confines resolved
+paths to their selected root, tolerates inaccessible directories, and separates
+`verified_results`, `search_exhausted`, `max_points`, and `aborted` outcomes.
+`maxResults` is the objective: asking for “all” in prose does not create an
+unbounded disk crawl. `GO BACK` is reserved on child-directory and pagination
+boards, so Jev can abandon an unproductive branch without exhausting it. It is
+not offered at the only search root, where going back would merely terminate the
+search before inspecting anything.
+
+For a person at the terminal, no flags are required:
+
+```bash
+node bin/jev-one.js find
+```
+
+The CLI uses Node's built-in `readline/promises` input interface and asks only:
+
+```text
+What should Jev find?
+Where should it search? [all detected disks]
+How many results should it bring back? [1]
+Maximum directory depth? [32]
+```
+
+The explicit flags remain available for scripts and advanced limits.
+
+## The five building blocks
 
 ### 1. A vocabulary gives Jev meanings to choose
 
@@ -227,7 +308,62 @@ Large choice sets use Jev shortlist batches; hierarchical vocabularies can
 expose a smaller, meaningful choice at each level. Navigation rejects cycles
 and excessive depth.
 
-### 3. Numbers point to whatever is visible now
+### 3. Decision cards preserve structured criteria
+
+Use `jev.cards.choose(...)` when a label and one description are not enough to
+distinguish the alternatives. Context, instructions, and each card's criteria
+may be JSON objects or arrays. Jev One preserves that structure through the
+kernel and Gateway provider instead of flattening it into prompt text.
+
+```js
+const answer = await jev.cards.choose({
+  context: {
+    message: 'My parcel is late and tracking has not moved.',
+    customerTier: 'pro',
+  },
+  instructions: {
+    question: 'Which team should handle this first?',
+    focus: 'The customer main ask, not every topic mentioned.',
+  },
+  cards: [
+    {
+      id: 'billing',
+      label: 'Billing',
+      criteria: {
+        what: ['charges', 'refunds', 'duplicate payments', 'invoices'],
+        notFor: 'Delivery delays or missing packages.',
+        examples: ['I was charged twice.', 'I want a refund.'],
+      },
+      value: { team: 'billing' },
+    },
+    {
+      id: 'shipping',
+      label: 'Shipping',
+      criteria: {
+        what: ['tracking', 'delivery', 'missing packages'],
+        notFor: 'Incorrect charges or refunds.',
+        examples: ['Where is my order?', 'Tracking has not updated.'],
+      },
+      value: { team: 'shipping' },
+    },
+  ],
+});
+
+console.log(answer.id);         // semantic card ID
+console.log(answer.card.value); // application-owned value
+console.log(answer.decision);   // distribution, ranking, trace IDs, diagnostics
+```
+
+Cards require at least two unique nonempty IDs and still obey the kernel's
+choice limit. Their structure is descriptive evidence, not executable behavior.
+Your application owns validation and effects. Run the complete example with
+`node examples/structured-cards.js`.
+
+For direct `kernel.point(...)` calls, `state`, `instructions`, and each choice's
+`criteria` are optional native structured inputs. Existing `goal`, `context`,
+`question`, `label`, and `description` calls retain their original behavior.
+
+### 4. Numbers point to whatever is visible now
 
 ```js
 const answer = await jev.numbers.choose({
@@ -250,7 +386,11 @@ before acting if the environment can change. For larger lists, use explicit
 pages or hierarchical selection; silently slicing to 25 can hide the correct
 answer. An empty or single-item list needs an explicit application policy.
 
-### 4. The runtime connects choices to consequences
+Each item may also include `criteria`, allowing numbered navigation to carry
+structured facts such as `{ kind, size, modifiedAt }` without changing the
+number-pointing result shape.
+
+### 5. The runtime connects choices to consequences
 
 A capability is your function, registered with a stable ID, description, and
 declared effects. Its handler returns updated `state` and an `observation`.
@@ -386,6 +526,12 @@ entries, confines traversal to its root, skips symlinks, and caps depth at four.
 It does not read file contents or execute shell commands. Names and paths can
 become Jev context; choose an appropriate root. See
 [the filesystem example](examples/navigate-g-drive.js), which uses a Windows path.
+
+`JevFileSearchAgent` is the higher-level collector for goal-directed search. It
+uses numbered page, entry, and action choices while retaining an explicit
+backtracking frontier. Use `ReadonlyFilesystemEnvironment` for a single bounded
+navigation target; use the search agent when you need several results or recovery
+from an initially unproductive branch.
 
 ## CLI and development
 

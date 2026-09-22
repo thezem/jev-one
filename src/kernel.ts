@@ -55,8 +55,11 @@ export class PointKernel {
     const started = performance.now();
     try {
       const raw = await this.provider.point({
-        state: `GOAL:\n${request.goal.trim()}\n\nCONTEXT:\n${request.context.trim() || 'none'}`,
+        state: request.state === undefined
+          ? `GOAL:\n${request.goal.trim()}\n\nCONTEXT:\n${request.context.trim() || 'none'}`
+          : { goal: request.goal.trim(), context: request.state },
         question: request.question.trim(),
+        ...(request.instructions !== undefined ? { instructions: request.instructions } : {}),
         choices: request.choices,
         signal: controller.signal,
       });
@@ -76,6 +79,7 @@ export class PointKernel {
         payload: {
           goal: request.goal,
           question: request.question,
+          ...(request.instructions !== undefined ? { instructions: request.instructions } : {}),
           choiceIds: ids,
           selected: selected.id,
           distribution,

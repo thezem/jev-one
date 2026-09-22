@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { JevOne, PointKernel } from '../dist/index.js';
 import { classifyMessage } from '../examples/quick-start.js';
 import { deliverNotebook } from '../examples/observable-world.js';
+import { routeTicket } from '../examples/structured-cards.js';
 
 // Private test fixtures verify example wiring, not live Jev quality. These are
 // not exported by the package and are never a runtime fallback.
@@ -18,6 +19,11 @@ test('quick-start example uses the documented vocabulary response', async () => 
   const answer = await classifyMessage(exampleEngine(['bug']));
   assert.equal(answer.entry.label, 'BUG');
   assert.equal(answer.decision.probability, 1);
+});
+test('structured-card example returns the selected application value', async () => {
+  const answer = await routeTicket(exampleEngine(['shipping']), 'Tracking has not updated.');
+  assert.equal(answer.id, 'shipping');
+  assert.deepEqual(answer.card.value, { team: 'shipping' });
 });
 for (const first of ['1', '2']) test(`documented courier can complete through route ${first}`, async () => {
   const jev = exampleEngine(['move', first, 'move', '2', 'pickup', 'move', first, 'move', '1', 'deliver']);

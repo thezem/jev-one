@@ -21,7 +21,7 @@ and has tests for both routes and premature stopping.
 ```js
 import { JevOne, PointKernel } from 'jev-one';
 import { VercelJevProvider } from 'jev-one/gateway';
-import { loadVocabularyDirectory, ReadonlyFilesystemEnvironment } from 'jev-one/node';
+import { JevFileSearchAgent, loadVocabularyDirectory, ReadonlyFilesystemEnvironment } from 'jev-one/node';
 ```
 
 The Gateway adapter and Node helpers run server-side. Initialize the provider
@@ -32,6 +32,7 @@ resolve to `dist`.
 | Task | API | Important returned fields |
 | --- | --- | --- |
 | One semantic answer | `jev.vocabulary.answer({ context, question, vocabulary, goal? })` | `entry`, `decision`, `path`, `steps` |
+| Choose from structured alternatives | `jev.cards.choose({ context, instructions, cards, goal? })` | `id`, `card`, `decision` |
 | Hierarchical answer | `jev.vocabulary.navigate({ context, question, root, goal?, maxDepth? })` | The same shape; `steps` records vocabulary decisions |
 | Bind current objects to numbers | `jev.numbers.choose({ context, question, items, goal? })` | `number`, `index`, `item`, `decision` |
 | Add or replace vocabulary | `jev.vocabularies.register(vocabulary)` | Registry |
@@ -40,9 +41,24 @@ resolve to `dist`.
 | Run the semantic loop | `jev.runtime.run(options)` | `done`, `reason`, `state`, `context`, `answer`, `turns` |
 | Inspect recorded model points | `jev.kernel.ledger.all()` | Hash-chained events |
 | Check local chain integrity | `jev.kernel.ledger.verify()` | Boolean; not a correctness judgment |
+| Find files or folders | `new JevFileSearchAgent(jev.numbers).search(goal, options)` | `done`, `reason`, `matches`, `visitedDirectories`, `points` |
 
 These are the exported method names. Do not invent convenience calls such as
 `jev.answerFrom`, `jev.run`, `jev.navigateIndex`, or `jev.addWord`.
+
+Use decision cards when alternatives need explicit fields such as positive
+signals, exclusions, examples, risks, prerequisites, or tie-break information.
+`context`, `instructions`, and card `criteria` accept JSON-compatible objects or
+arrays and remain structured through the Gateway call. Card structure describes
+the choice; it does not authorize or perform its effect. Strings remain valid
+for all existing APIs. Numbered items may also carry optional structured
+`criteria` while retaining their 1-25 board and return shape.
+
+For filesystem search, set a concrete `maxResults`; prose such as “find all” does
+not authorize an unbounded crawl. Supply narrow roots when they are known. The
+agent is read-only, discovers roots without shell commands, paginates through
+number boards, preserves unexplored sibling branches, re-resolves collected
+paths, and reports budget exhaustion separately from success.
 
 ## Build an integration in this order
 
@@ -228,7 +244,10 @@ remain binding, and model weights are not satisfaction probabilities. Use the
 | Vocabulary entries and payloads | [`src/vocabulary/types.ts`](../src/vocabulary/types.ts) |
 | Direct and hierarchical vocabulary selection | [`src/vocabulary/engine.ts`](../src/vocabulary/engine.ts) |
 | Numbered boards | [`src/vocabulary/indexed.ts`](../src/vocabulary/indexed.ts) |
+| Structured decision cards | [`src/cards.ts`](../src/cards.ts) |
 | Capability handlers | [`src/runtime/capabilities.ts`](../src/runtime/capabilities.ts) |
 | Semantic loop and completion | [`src/runtime/runtime.ts`](../src/runtime/runtime.ts) |
 | Completion, cancellation, and observer tests | [`test/runtime-lifecycle.test.js`](../test/runtime-lifecycle.test.js) |
 | Executable example wiring tests | [`test/documented-examples.test.js`](../test/documented-examples.test.js) |
+| Read-only multi-result filesystem search | [`src/node/file-search-agent.ts`](../src/node/file-search-agent.ts) |
+| Search navigation and pagination tests | [`test/file-search-agent.test.js`](../test/file-search-agent.test.js) |

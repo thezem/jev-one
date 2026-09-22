@@ -1,6 +1,12 @@
+import type { JSONValue } from 'ai';
+
 export type DecisionStrength = 'decisive' | 'preferred' | 'close' | 'diffuse';
 export type ChoiceKind = 'meaning' | 'judgment' | 'transition' | 'navigation' | 'command' | 'control' | 'speech';
 export type Posture = 'talk' | 'choose' | 'act' | 'wait' | 'stop';
+
+/** Native input accepted by Jev's evaluation API. Strings remain the simplest
+ * form; objects and arrays preserve structured instructions and criteria. */
+export type JevInput = string | Readonly<Record<string, JSONValue>> | readonly JSONValue[];
 
 export interface PointChoice<T = unknown> {
   id: string;
@@ -9,6 +15,9 @@ export interface PointChoice<T = unknown> {
   kind?: ChoiceKind;
   value?: T;
   metadata?: Record<string, unknown>;
+  /** Complete provider-facing criterion for this choice. When omitted, the
+   * provider derives the criterion from label and description as before. */
+  criteria?: JevInput | null;
 }
 
 export interface PointLimits {
@@ -20,6 +29,11 @@ export interface PointRequest<T = unknown> {
   goal: string;
   context: string;
   question: string;
+  /** Optional native structured state. The kernel retains goal as an envelope. */
+  state?: JevInput;
+  /** Optional native structured instructions. `question` remains the readable
+   * trace label and backward-compatible fallback. */
+  instructions?: JevInput;
   choices: PointChoice<T>[];
   module: string;
   limits?: PointLimits;
@@ -30,9 +44,10 @@ export interface PointRequest<T = unknown> {
 }
 
 export interface ProviderPointRequest {
-  state: string;
+  state: JevInput;
   question: string;
-  choices: Array<Pick<PointChoice, 'id' | 'label' | 'description'>>;
+  instructions?: JevInput;
+  choices: Array<Pick<PointChoice, 'id' | 'label' | 'description' | 'criteria'>>;
   signal?: AbortSignal;
 }
 

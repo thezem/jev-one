@@ -1,11 +1,12 @@
 import type { PointKernel } from '../kernel.js';
-import type { PointResult } from '../types.js';
+import type { JevInput, PointResult } from '../types.js';
 
 export interface IndexedItem<T = unknown> {
   label: string;
   description: string;
   value: T;
   metadata?: Record<string, unknown>;
+  criteria?: JevInput | null;
 }
 
 export interface IndexedAnswer<T = unknown> {
@@ -40,6 +41,13 @@ export class IndexedVocabulary {
         id: String(index + 1),
         label: String(index + 1),
         description: `${item.label}: ${item.description}`,
+        ...(item.criteria !== undefined ? {
+          criteria: item.criteria === null ? null : {
+            label: item.label,
+            description: item.description,
+            criteria: item.criteria,
+          },
+        } : {}),
         kind: 'navigation',
         value: item,
         metadata: { index, ...(item.metadata ?? {}) },
