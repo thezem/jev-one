@@ -37,7 +37,7 @@ export class PointKernel {
   constructor(provider: JevProvider, options: KernelOptions = {}) {
     this.provider = provider;
     this.ledger = options.ledger ?? new TraceLedger();
-    this.maxChoices = options.maxChoices ?? 50;
+    this.maxChoices = options.maxChoices ?? 255;
     this.deadlineMs = options.deadlineMs ?? 30_000;
   }
 

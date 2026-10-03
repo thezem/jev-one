@@ -130,7 +130,7 @@ Instead of asking Jev to choose named concepts, show it a numbered board:
 ```
 
 The numbers are permanent; their bindings are temporary. On every turn, the
-program can attach `1–25` to whatever is visible now.
+program can attach `1–255` to whatever is visible now.
 
 This simple trick lets the same pointing intelligence navigate directories,
 web pages, inventories, maps, menus, code regions, search results, and tool

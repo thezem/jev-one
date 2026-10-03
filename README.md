@@ -381,10 +381,9 @@ console.log(answer.index);      // zero-based position
 console.log(answer.item.value); // the value bound to the selected item
 ```
 
-The board accepts **2–25 items**. Bindings are local to that call. Re-observe
-before acting if the environment can change. For larger lists, use explicit
-pages or hierarchical selection; silently slicing to 25 can hide the correct
-answer. An empty or single-item list needs an explicit application policy.
+The board accepts **2–255 items**, matching Jev's per-request capacity.
+Bindings are local to that call. Re-observe before acting if the environment
+can change. An empty or single-item list needs an explicit application policy.
 
 Each item may also include `criteria`, allowing numbered navigation to carry
 structured facts such as `{ kind, size, modifiedAt }` without changing the

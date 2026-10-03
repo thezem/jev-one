@@ -24,14 +24,14 @@ export interface IndexedQuestion<T = unknown> {
   module?: string;
 }
 
-/** A permanent 1-25 pointing board. The numbers stay stable while callers bind
+/** A permanent 1-255 pointing board. The numbers stay stable while callers bind
  * them to the currently visible files, elements, commands, or other legal items. */
 export class IndexedVocabulary {
   readonly #kernel: PointKernel;
   constructor(kernel: PointKernel) { this.#kernel = kernel; }
 
   async choose<T>(request: IndexedQuestion<T>): Promise<IndexedAnswer<T>> {
-    if (request.items.length < 2 || request.items.length > 25) throw new Error('Indexed vocabulary requires 2-25 items.');
+    if (request.items.length < 2 || request.items.length > 255) throw new Error('Indexed vocabulary requires 2-255 items.');
     const decision = await this.#kernel.point({
       goal: request.goal ?? 'Point to the numbered item that best answers the question.',
       context: request.context,

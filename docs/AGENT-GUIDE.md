@@ -52,7 +52,7 @@ signals, exclusions, examples, risks, prerequisites, or tie-break information.
 arrays and remain structured through the Gateway call. Card structure describes
 the choice; it does not authorize or perform its effect. Strings remain valid
 for all existing APIs. Numbered items may also carry optional structured
-`criteria` while retaining their 1-25 board and return shape.
+`criteria` while retaining their 1-255 board and return shape.
 
 For filesystem search, set a concrete `maxResults`; prose such as “find all” does
 not authorize an unbounded crawl. Supply narrow roots when they are known. The
@@ -186,7 +186,7 @@ ID replaces it. Validate untrusted input at your application boundary.
   `verifyCompletion` and inspect `done` plus `reason`.
 
 Defaults: `maxTurns: 8`, `maxDepth: 6`, `maxRepeatedState: 2`. The kernel defaults
-to 50 choices and a 30-second per-call deadline. The indexed board requires 2–25
+to 255 choices and a 30-second per-call deadline. The indexed board requires 2–255
 items. A runtime turn may include several model calls, especially when a handler
 or vocabulary hierarchy makes additional selections.
 

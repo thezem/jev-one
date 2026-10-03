@@ -26,7 +26,7 @@ references until it reaches a leaf, with deterministic cycle and depth limits.
 The same engine accepts built-in packs, inline entries, or recursively loaded
 JSON directories.
 
-For arbitrary observed lists, `IndexedVocabulary` exposes a permanent 1–25
+For arbitrary observed lists, `IndexedVocabulary` exposes a permanent 1–255
 language. A program temporarily binds those positions to the current files,
 DOM elements, commands, search results, or legal moves. The vocabulary stays
 constant while the board changes.
